@@ -1,11 +1,11 @@
-import boto3, datetime
+import boto3, datetime, argparse
 from termcolor import colored
+
 
 def get_metrics_elb(asset):
     client1 = boto3.client('elb')
     response1 = client1.describe_instance_health(
         LoadBalancerName=asset,
-
     )
 
     for instancestates in response1['InstanceStates']:
@@ -13,10 +13,7 @@ def get_metrics_elb(asset):
             ins_state = colored(instancestates['State'],'green')
         else:
             ins_state = colored(instancestates['State'],'red')
-
-        print('Instance Id: ', instancestates['InstanceId'], '| Instance State: ', ins_state)
-
-
+        print("Instance Id: {0} | Instance State: {1} ".format(instancestates['InstanceId'], ins_state))
 
 def get_metrics_ec2(asset):
     client = boto3.client('cloudwatch')
@@ -39,9 +36,9 @@ def get_metrics_ec2(asset):
         return response['Datapoints'][-1]['Average']
 
 
-def asg():
+def asg(ASG):
     client = boto3.client('autoscaling')
-    response = client.describe_auto_scaling_groups()
+    response = client.describe_auto_scaling_groups(AutoScalingGroupNames=ASG.split(','))
     ASGs = response['AutoScalingGroups']
 
     healthy = 0
@@ -71,12 +68,11 @@ def asg():
                 ins_life = colored(instance['LifecycleState'], 'green')
             else:
                 ins_life = colored(instance['LifecycleState'], 'red')
-
-            print('Instance Id: ', colored(instance['InstanceId'],'yellow'), '| Instance Zone:', colored(instance['AvailabilityZone'],'yellow'), ' | Instance LifecycleState: ', ins_life, '| Instance Status: ', ins_health, '| Instance Cpu: ', ins_cpu)
+            print("Instance Id: {0} | Instance Zone: {1} | Instance LifecycleState: {2} | Instance Status: {3} | Instance Cpu: {4}".format(colored(instance['InstanceId'],'yellow'), colored(instance['AvailabilityZone'],'yellow'), ins_life, ins_health, ins_cpu))
 
         print('#'*150)
-        print('ASG Healthy Instance Count: ', colored(healthy, "green"))
-        print('ASG Unhealthy Instance Count: ', colored(unhealthy, "red"))
+        print("ASG Healthy Instance Count: {0}".format(colored(healthy, 'green')))
+        print("ASG Unhealthy Instance Count: {0}".format(colored(unhealthy, "red")))
 
         for ELB in (ASG['LoadBalancerNames']):
             print('#'*150)
@@ -87,7 +83,11 @@ def asg():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("asg",help="Enter list of autoscaling groups")
+    args = parser.parse_args()
     try:
-        asg()
+        asg(args.asg)
     except Exception as err:
         print(err)
+
